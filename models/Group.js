@@ -31,13 +31,13 @@ const groupSchema = new mongoose.Schema({
   },
   statusLabel: {
     type: String,
-    enum: ['Normal', 'VIP'],
-    default: 'Normal'
+    enum: ['Economic', 'Standard', 'VIP'],
+    default: 'Standard'
   },
   nationality: String,
   visaType: {
     type: String,
-    enum: ['Umrah', 'Tourist', 'No Visa'],
+    enum: ['Umrah', 'Tourist', 'No Visa', 'Internal'],
     default: 'Umrah'
   },
   costPerPerson: {
