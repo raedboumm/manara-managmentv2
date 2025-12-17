@@ -9,7 +9,7 @@ router.get('/', auth, async (req, res) => {
   try {
     const operations = await Operation.find()
       .populate('group', 'name')
-      .populate('hotel', 'name');
+      .populate('hotel', 'name city');
     res.json(operations);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -31,7 +31,7 @@ router.get('/:id', auth, async (req, res) => {
   try {
     const operation = await Operation.findById(req.params.id)
       .populate('group', 'name')
-      .populate('hotel', 'name');
+      .populate('hotel', 'name city');
     if (!operation) {
       return res.status(404).json({ message: 'Operation not found' });
     }
