@@ -2,6 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const Activity = require('../models/Activity');
+const User = require('../models/User');
 const auth = require('../middleware/auth');
 const { logActivity } = require('../middleware/activityLogger');
 
@@ -10,14 +11,9 @@ router.get('/', auth, async (req, res) => {
   try {
     console.log('🔍 ACTIVITIES - User Role:', req.user.role, 'User ID:', req.user.id);
     
-    // Build filter based on role
-    const filter = {};
-    if (req.user.role === 'Group Leader') {
-      console.log('🔒 Filtering activities for Group Leader:', req.user.id);
-      filter.createdBy = req.user.id;
-    }
-    
-    const activities = await Activity.find(filter)
+    // All users can see all activities from the master list
+    // Activities are meant to be a master list that everyone can use
+    const activities = await Activity.find({})
       .populate('group', 'name')
       .populate('participants', 'firstName lastName')
       .populate('createdBy', 'name email');
@@ -66,6 +62,8 @@ router.post('/', auth, async (req, res) => {
     await activity.populate('createdBy', 'name email');
     
     // Log the activity creation
+    const user = await User.findById(req.user.id).select('agency');
+    const agencyId = user?.agency || null;
     await logActivity(
       'activity_added',
       `Added activity "${activity.name}"`,
@@ -73,7 +71,8 @@ router.post('/', auth, async (req, res) => {
       'activity',
       activity._id,
       activity.name,
-      { city: activity.city }
+      { city: activity.city },
+      agencyId
     );
     
     res.status(201).json(activity);
@@ -96,13 +95,17 @@ router.put('/:id', auth, async (req, res) => {
     }
     
     // Log the activity update
+    const user = await User.findById(req.user.id).select('agency');
+    const agencyId = user?.agency || null;
     await logActivity(
       'activity_updated',
       `Updated activity "${activity.name}"`,
       req.user,
       'activity',
       activity._id,
-      activity.name
+      activity.name,
+      {},
+      agencyId
     );
     
     res.json(activity);
@@ -120,13 +123,17 @@ router.delete('/:id', auth, async (req, res) => {
     }
     
     // Log the activity deletion
+    const user = await User.findById(req.user.id).select('agency');
+    const agencyId = user?.agency || null;
     await logActivity(
       'activity_deleted',
       `Deleted activity "${activity.name}"`,
       req.user,
       'activity',
       activity._id,
-      activity.name
+      activity.name,
+      {},
+      agencyId
     );
     
     res.json({ message: 'Activity deleted successfully' });

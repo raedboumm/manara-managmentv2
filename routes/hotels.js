@@ -90,6 +90,8 @@ router.post('/', auth, async (req, res) => {
     await hotel.populate('createdBy', 'name email');
     
     // Log the hotel creation activity
+    const user = await User.findById(req.user.id).select('agency');
+    const agencyId = user?.agency || null;
     await logActivity(
       'hotel_added',
       `Added hotel "${hotel.name}"`,
@@ -97,7 +99,8 @@ router.post('/', auth, async (req, res) => {
       'hotel',
       hotel._id,
       hotel.name,
-      { city: hotel.city }
+      { city: hotel.city },
+      agencyId
     );
     
     res.status(201).json(hotel);
@@ -120,13 +123,17 @@ router.put('/:id', auth, async (req, res) => {
     }
     
     // Log the hotel update activity
+    const user = await User.findById(req.user.id).select('agency');
+    const agencyId = user?.agency || null;
     await logActivity(
       'hotel_updated',
       `Updated hotel "${hotel.name}"`,
       req.user,
       'hotel',
       hotel._id,
-      hotel.name
+      hotel.name,
+      {},
+      agencyId
     );
     
     res.json(hotel);
@@ -144,13 +151,17 @@ router.delete('/:id', auth, async (req, res) => {
     }
     
     // Log the hotel deletion activity
+    const user = await User.findById(req.user.id).select('agency');
+    const agencyId = user?.agency || null;
     await logActivity(
       'hotel_deleted',
       `Deleted hotel "${hotel.name}"`,
       req.user,
       'hotel',
       hotel._id,
-      hotel.name
+      hotel.name,
+      {},
+      agencyId
     );
     
     res.json({ message: 'Hotel deleted successfully' });

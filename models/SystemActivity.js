@@ -50,6 +50,14 @@ const systemActivitySchema = new mongoose.Schema({
   entityName: {
     type: String
   },
+  agency: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Agency'
+  },
+  isRead: {
+    type: Boolean,
+    default: false
+  },
   metadata: {
     type: mongoose.Schema.Types.Mixed
   },
@@ -65,5 +73,6 @@ const systemActivitySchema = new mongoose.Schema({
 systemActivitySchema.index({ createdAt: -1 });
 systemActivitySchema.index({ user: 1, createdAt: -1 });
 systemActivitySchema.index({ type: 1, createdAt: -1 });
+systemActivitySchema.index({ agency: 1, isRead: 1, createdAt: -1 });
 
 module.exports = mongoose.model('SystemActivity', systemActivitySchema);

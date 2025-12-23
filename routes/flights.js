@@ -2,6 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const Flight = require('../models/Flight');
+const User = require('../models/User');
 const auth = require('../middleware/auth');
 const { logActivity } = require('../middleware/activityLogger');
 
@@ -70,6 +71,8 @@ router.post('/', auth, async (req, res) => {
     await flight.populate('createdBy', 'name email');
     
     // Log the flight creation activity
+    const user = await User.findById(req.user.id).select('agency');
+    const agencyId = user?.agency || null;
     await logActivity(
       'flight_added',
       `Added flight "${flight.flightNumber || 'Flight'}"`,
@@ -77,7 +80,8 @@ router.post('/', auth, async (req, res) => {
       'flight',
       flight._id,
       flight.flightNumber,
-      { group: flight.group?.name }
+      { group: flight.group?.name },
+      agencyId
     );
     
     res.status(201).json(flight);
@@ -100,13 +104,17 @@ router.put('/:id', auth, async (req, res) => {
     }
     
     // Log the flight update activity
+    const user = await User.findById(req.user.id).select('agency');
+    const agencyId = user?.agency || null;
     await logActivity(
       'flight_updated',
       `Updated flight "${flight.flightNumber || 'Flight'}"`,
       req.user,
       'flight',
       flight._id,
-      flight.flightNumber
+      flight.flightNumber,
+      {},
+      agencyId
     );
     
     res.json(flight);
@@ -124,13 +132,17 @@ router.delete('/:id', auth, async (req, res) => {
     }
     
     // Log the flight deletion activity
+    const user = await User.findById(req.user.id).select('agency');
+    const agencyId = user?.agency || null;
     await logActivity(
       'flight_deleted',
       `Deleted flight "${flight.flightNumber || 'Flight'}"`,
       req.user,
       'flight',
       flight._id,
-      flight.flightNumber
+      flight.flightNumber,
+      {},
+      agencyId
     );
     
     res.json({ message: 'Flight deleted successfully' });

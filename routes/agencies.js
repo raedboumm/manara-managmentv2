@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const Agency = require('../models/Agency');
 const User = require('../models/User');
+const SystemActivity = require('../models/SystemActivity');
 const auth = require('../middleware/auth');
 
 // Get all agencies with statistics
@@ -174,6 +175,81 @@ router.get('/:id/stats', auth, async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Error fetching agency stats:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Get recent activities for a specific agency
+router.get('/:id/activities', auth, async (req, res) => {
+  try {
+    if (req.user.role !== 'Super Admin') {
+      return res.status(403).json({ message: 'Access denied. Super Admin only.' });
+    }
+    
+    const activities = await SystemActivity.find({ agency: req.params.id })
+      .populate('user', 'name email role')
+      .sort({ createdAt: -1 })
+      .limit(100); // Limit to last 100 activities
+    
+    console.log(`📊 Found ${activities.length} activities for agency ${req.params.id}`);
+    res.json(activities);
+  } catch (error) {
+    console.error('❌ Error fetching agency activities:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Mark agency activities as read
+router.post('/:id/activities/mark-read', auth, async (req, res) => {
+  try {
+    if (req.user.role !== 'Super Admin') {
+      return res.status(403).json({ message: 'Access denied. Super Admin only.' });
+    }
+    
+    const result = await SystemActivity.updateMany(
+      { agency: req.params.id, isRead: false },
+      { $set: { isRead: true } }
+    );
+    
+    console.log(`✅ Marked ${result.modifiedCount} activities as read for agency ${req.params.id}`);
+    res.json({ message: 'Activities marked as read', count: result.modifiedCount });
+  } catch (error) {
+    console.error('❌ Error marking activities as read:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Get unread activity count for all agencies
+router.get('/notifications/count', auth, async (req, res) => {
+  try {
+    if (req.user.role !== 'Super Admin') {
+      return res.status(403).json({ message: 'Access denied. Super Admin only.' });
+    }
+    
+    // Get all agencies
+    const agencies = await Agency.find().select('_id');
+    
+    // Get unread count for each agency
+    const agencyCounts = await Promise.all(agencies.map(async (agency) => {
+      const count = await SystemActivity.countDocuments({ 
+        agency: agency._id, 
+        isRead: false 
+      });
+      return {
+        agencyId: agency._id,
+        unreadCount: count
+      };
+    }));
+    
+    // Calculate total unread count
+    const totalUnread = agencyCounts.reduce((sum, item) => sum + item.unreadCount, 0);
+    
+    res.json({
+      totalUnread,
+      agencies: agencyCounts.filter(item => item.unreadCount > 0) // Only return agencies with unread
+    });
+  } catch (error) {
+    console.error('❌ Error fetching unread counts:', error);
     res.status(500).json({ message: error.message });
   }
 });

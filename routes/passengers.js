@@ -2,6 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const Passenger = require('../models/Passenger');
+const User = require('../models/User');
 const auth = require('../middleware/auth');
 const { logActivity } = require('../middleware/activityLogger');
 
@@ -63,6 +64,10 @@ router.post('/', auth, async (req, res) => {
     await passenger.populate('group', 'name');
     await passenger.populate('createdBy', 'name email');
     
+    // Get user's agency for activity logging
+    const user = await User.findById(req.user.id).select('agency');
+    const agencyId = user?.agency || null;
+    
     // Log the passenger creation activity
     await logActivity(
       'passenger_added',
@@ -71,7 +76,8 @@ router.post('/', auth, async (req, res) => {
       'passenger',
       passenger._id,
       passenger.name,
-      { group: passenger.group?.name }
+      { group: passenger.group?.name },
+      agencyId
     );
     
     res.status(201).json(passenger);
@@ -93,15 +99,23 @@ router.put('/:id', auth, async (req, res) => {
       return res.status(404).json({ message: 'Passenger not found' });
     }
     
+    // Get user's agency for activity logging
+    const user = await User.findById(req.user.id).select('agency');
+    const agencyId = user?.agency || null;
+    
+    // Build full name for logging
+    const passengerName = passenger.fullName || `${passenger.firstName} ${passenger.lastName}`;
+    
     // Log the passenger update activity
     await logActivity(
       'passenger_updated',
-      `Updated passenger "${passenger.name}"`,
+      `Updated passenger "${passengerName}"`,
       req.user,
       'passenger',
       passenger._id,
-      passenger.name,
-      { group: passenger.group?.name }
+      passengerName,
+      { group: passenger.group?.name },
+      agencyId
     );
     
     res.json(passenger);
@@ -113,19 +127,32 @@ router.put('/:id', auth, async (req, res) => {
 // Delete passenger
 router.delete('/:id', auth, async (req, res) => {
   try {
-    const passenger = await Passenger.findByIdAndDelete(req.params.id);
+    // Fetch passenger BEFORE deletion to get name
+    const passenger = await Passenger.findById(req.params.id).populate('group', 'name');
     if (!passenger) {
       return res.status(404).json({ message: 'Passenger not found' });
     }
     
+    // Build full name for logging
+    const passengerName = passenger.fullName || `${passenger.firstName} ${passenger.lastName}`;
+    
+    // Delete the passenger
+    await Passenger.findByIdAndDelete(req.params.id);
+    
+    // Get user's agency for activity logging
+    const user = await User.findById(req.user.id).select('agency');
+    const agencyId = user?.agency || null;
+    
     // Log the passenger deletion activity
     await logActivity(
       'passenger_deleted',
-      `Deleted passenger "${passenger.name}"`,
+      `Deleted passenger "${passengerName}"`,
       req.user,
       'passenger',
       passenger._id,
-      passenger.name
+      passengerName,
+      { group: passenger.group?.name },
+      agencyId
     );
     
     res.json({ message: 'Passenger deleted successfully' });

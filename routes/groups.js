@@ -2,6 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const Group = require('../models/Group');
+const User = require('../models/User');
 const auth = require('../middleware/auth');
 const { addRoleFilter } = require('../middleware/roleFilter');
 const { logActivity } = require('../middleware/activityLogger');
@@ -118,6 +119,8 @@ router.post('/', auth, async (req, res) => {
     await group.populate('createdBy', 'name email');
     
     // Log the group creation activity
+    const user = await User.findById(req.user.id).select('agency');
+    const agencyId = user?.agency || null;
     await logActivity(
       'group_created',
       `Created group "${group.name || group.groupName}"`,
@@ -125,7 +128,8 @@ router.post('/', auth, async (req, res) => {
       'group',
       group._id,
       group.name || group.groupName,
-      { totalPassengers: group.totalPassengers, nationality: group.nationality }
+      { totalPassengers: group.totalPassengers, nationality: group.nationality },
+      agencyId
     );
     
     res.status(201).json(group);
@@ -171,13 +175,17 @@ router.put('/:id', auth, async (req, res) => {
     }
     
     // Log the group update activity
+    const user = await User.findById(req.user.id).select('agency');
+    const agencyId = user?.agency || null;
     await logActivity(
       'group_updated',
       `Updated group "${group.name || group.groupName}"`,
       req.user,
       'group',
       group._id,
-      group.name || group.groupName
+      group.name || group.groupName,
+      {},
+      agencyId
     );
     
     res.json(group);
@@ -198,13 +206,17 @@ router.delete('/:id', auth, async (req, res) => {
     console.log('🔴 Group deleted successfully:', group.name);
     
     // Log the group deletion activity
+    const user = await User.findById(req.user.id).select('agency');
+    const agencyId = user?.agency || null;
     await logActivity(
       'group_deleted',
       `Deleted group "${group.name || group.groupName}"`,
       req.user,
       'group',
       group._id,
-      group.name || group.groupName
+      group.name || group.groupName,
+      {},
+      agencyId
     );
     
     res.json({ message: 'Group deleted successfully', deletedGroup: group });
