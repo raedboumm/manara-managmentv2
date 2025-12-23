@@ -55,6 +55,11 @@ const passengerSchema = new mongoose.Schema({
     enum: ['Registered', 'Active', 'Completed'],
     default: 'Registered'
   },
+  roomAssignment: {
+    roomId: String,
+    roomNumber: String,
+    customName: String
+  },
   createdAt: {
     type: Date,
     default: Date.now

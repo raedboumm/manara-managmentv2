@@ -134,4 +134,47 @@ router.delete('/:id', auth, async (req, res) => {
   }
 });
 
+// Bulk update room assignments
+router.post('/room-assignments', auth, async (req, res) => {
+  try {
+    const { assignments } = req.body;
+    
+    console.log('💾 Saving room assignments:', JSON.stringify(assignments, null, 2));
+    
+    if (!assignments || !Array.isArray(assignments)) {
+      return res.status(400).json({ message: 'Invalid assignments data' });
+    }
+    
+    // Update each passenger's room assignment
+    const updatePromises = assignments.map(async ({ passengerId, roomAssignment }) => {
+      try {
+        const passenger = await Passenger.findByIdAndUpdate(
+          passengerId,
+          { roomAssignment, updatedAt: Date.now() },
+          { new: true, runValidators: false }
+        );
+        
+        if (!passenger) {
+          console.warn('⚠️ Passenger not found:', passengerId);
+        } else {
+          console.log('✅ Updated passenger:', passengerId, 'Room:', roomAssignment?.roomId || 'unassigned');
+        }
+        
+        return passenger;
+      } catch (err) {
+        console.error('❌ Error updating passenger:', passengerId, err.message);
+        throw err;
+      }
+    });
+    
+    await Promise.all(updatePromises);
+    
+    console.log('✅ All room assignments saved successfully');
+    res.json({ message: 'Room assignments saved successfully' });
+  } catch (error) {
+    console.error('❌ Error saving room assignments:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
 module.exports = router;
