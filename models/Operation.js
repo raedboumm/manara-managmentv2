@@ -18,6 +18,10 @@ const operationSchema = new mongoose.Schema({
     ref: 'Group',
     required: true
   },
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
   startDate: {
     type: Date,
     required: true

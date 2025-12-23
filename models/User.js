@@ -27,6 +27,23 @@ const userSchema = new mongoose.Schema({
     default: 'Operational Staff'
   },
   phone: String,
+  agency: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Agency',
+    default: null
+  },
+  isOnline: {
+    type: Boolean,
+    default: false
+  },
+  lastActive: {
+    type: Date,
+    default: Date.now
+  },
+  isBlocked: {
+    type: Boolean,
+    default: false
+  },
   active: {
     type: Boolean,
     default: true

@@ -8,15 +8,22 @@ const activitySchema = new mongoose.Schema({
     trim: true
   },
   description: String,
+  city: {
+    type: String,
+    enum: ['Makkah', 'Madinah'],
+    default: 'Makkah'
+  },
   location: String,
   group: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Group',
-    required: true
+    ref: 'Group'
+  },
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
   },
   date: {
-    type: Date,
-    required: true
+    type: Date
   },
   startTime: String,
   endTime: String,

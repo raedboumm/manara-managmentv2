@@ -7,9 +7,21 @@ const auth = require('../middleware/auth');
 // Get all operations
 router.get('/', auth, async (req, res) => {
   try {
-    const operations = await Operation.find()
+    console.log('🔍 OPERATIONS - User Role:', req.user.role, 'User ID:', req.user.id);
+    
+    // Build filter based on role
+    const filter = {};
+    if (req.user.role === 'Group Leader') {
+      console.log('🔒 Filtering operations for Group Leader:', req.user.id);
+      filter.createdBy = req.user.id;
+    }
+    
+    const operations = await Operation.find(filter)
       .populate('group', 'name')
-      .populate('hotel', 'name city');
+      .populate('hotel', 'name city')
+      .populate('createdBy', 'name email');
+    
+    console.log('📊 Found operations:', operations.length);
     res.json(operations);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -44,9 +56,14 @@ router.get('/:id', auth, async (req, res) => {
 // Create operation
 router.post('/', auth, async (req, res) => {
   try {
-    const operation = new Operation(req.body);
+    const operationData = {
+      ...req.body,
+      createdBy: req.user.id
+    };
+    const operation = new Operation(operationData);
     await operation.save();
     await operation.populate('group', 'name');
+    await operation.populate('createdBy', 'name email');
     res.status(201).json(operation);
   } catch (error) {
     res.status(500).json({ message: error.message });

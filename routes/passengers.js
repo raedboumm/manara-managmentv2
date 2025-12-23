@@ -3,11 +3,25 @@ const express = require('express');
 const router = express.Router();
 const Passenger = require('../models/Passenger');
 const auth = require('../middleware/auth');
+const { logActivity } = require('../middleware/activityLogger');
 
 // Get all passengers
 router.get('/', auth, async (req, res) => {
   try {
-    const passengers = await Passenger.find().populate('group', 'name');
+    console.log('🔍 PASSENGERS - User Role:', req.user.role, 'User ID:', req.user.id);
+    
+    // Build filter based on role
+    const filter = {};
+    if (req.user.role === 'Group Leader') {
+      console.log('🔒 Filtering passengers for Group Leader:', req.user.id);
+      filter.createdBy = req.user.id;
+    }
+    
+    const passengers = await Passenger.find(filter)
+      .populate('group', 'name')
+      .populate('createdBy', 'name email');
+    
+    console.log('📊 Found passengers:', passengers.length);
     res.json(passengers);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -40,9 +54,26 @@ router.get('/:id', auth, async (req, res) => {
 // Create passenger
 router.post('/', auth, async (req, res) => {
   try {
-    const passenger = new Passenger(req.body);
+    const passengerData = {
+      ...req.body,
+      createdBy: req.user.id
+    };
+    const passenger = new Passenger(passengerData);
     await passenger.save();
     await passenger.populate('group', 'name');
+    await passenger.populate('createdBy', 'name email');
+    
+    // Log the passenger creation activity
+    await logActivity(
+      'passenger_added',
+      `Added passenger "${passenger.name}"`,
+      req.user,
+      'passenger',
+      passenger._id,
+      passenger.name,
+      { group: passenger.group?.name }
+    );
+    
     res.status(201).json(passenger);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -61,6 +92,18 @@ router.put('/:id', auth, async (req, res) => {
     if (!passenger) {
       return res.status(404).json({ message: 'Passenger not found' });
     }
+    
+    // Log the passenger update activity
+    await logActivity(
+      'passenger_updated',
+      `Updated passenger "${passenger.name}"`,
+      req.user,
+      'passenger',
+      passenger._id,
+      passenger.name,
+      { group: passenger.group?.name }
+    );
+    
     res.json(passenger);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -74,6 +117,17 @@ router.delete('/:id', auth, async (req, res) => {
     if (!passenger) {
       return res.status(404).json({ message: 'Passenger not found' });
     }
+    
+    // Log the passenger deletion activity
+    await logActivity(
+      'passenger_deleted',
+      `Deleted passenger "${passenger.name}"`,
+      req.user,
+      'passenger',
+      passenger._id,
+      passenger.name
+    );
+    
     res.json({ message: 'Passenger deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });

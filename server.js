@@ -61,6 +61,9 @@ app.use('/api/airlines', require('./routes/airlines'));
 app.use('/api/operations', require('./routes/operations'));
 app.use('/api/activities', require('./routes/activities'));
 app.use('/api/contacts', require('./routes/contacts'));
+app.use('/api/agencies', require('./routes/agencies'));
+app.use('/api/messages', require('./routes/messages'));
+app.use('/api/system-activities', require('./routes/systemActivities'));
 
 // Health check
 app.get('/health', (req, res) => {

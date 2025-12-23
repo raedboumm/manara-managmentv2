@@ -3,11 +3,26 @@ const express = require('express');
 const router = express.Router();
 const Group = require('../models/Group');
 const auth = require('../middleware/auth');
+const { addRoleFilter } = require('../middleware/roleFilter');
+const { logActivity } = require('../middleware/activityLogger');
 
 // Get all groups
 router.get('/', auth, async (req, res) => {
   try {
-    const groups = await Group.find().populate('leader', 'name email');
+    console.log('🔍 GROUPS - User Role:', req.user.role, 'User ID:', req.user.id);
+    
+    // Build filter based on role
+    const filter = {};
+    if (req.user.role === 'Group Leader') {
+      console.log('🔒 Filtering groups for Group Leader:', req.user.id);
+      filter.createdBy = req.user.id;
+    }
+    
+    const groups = await Group.find(filter)
+      .populate('leader', 'name email')
+      .populate('createdBy', 'name email');
+    
+    console.log('📊 Found groups:', groups.length);
     res.json(groups);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -17,7 +32,7 @@ router.get('/', auth, async (req, res) => {
 // Get group by ID
 router.get('/:id', auth, async (req, res) => {
   try {
-    const group = await Group.findById(req.params.id).populate('leader', 'name email');
+    const group = await Group.findById(req.params.id).populate('leader', 'name email').populate('createdBy', 'name email');
     if (!group) {
       return res.status(404).json({ message: 'Group not found' });
     }
@@ -63,6 +78,7 @@ router.post('/', auth, async (req, res) => {
       groupName: groupName || name,
       description,
       leader,
+      createdBy: req.user.id, // Track who created this group
       totalPassengers,
       budget,
       startDate,
@@ -99,6 +115,19 @@ router.post('/', auth, async (req, res) => {
     console.log('🔴 After save - group data:', group.toObject());
     
     await group.populate('leader', 'name email');
+    await group.populate('createdBy', 'name email');
+    
+    // Log the group creation activity
+    await logActivity(
+      'group_created',
+      `Created group "${group.name || group.groupName}"`,
+      req.user,
+      'group',
+      group._id,
+      group.name || group.groupName,
+      { totalPassengers: group.totalPassengers, nationality: group.nationality }
+    );
+    
     res.status(201).json(group);
   } catch (error) {
     console.error('🔴 Error creating group:', error);
@@ -140,6 +169,17 @@ router.put('/:id', auth, async (req, res) => {
     if (!group) {
       return res.status(404).json({ message: 'Group not found' });
     }
+    
+    // Log the group update activity
+    await logActivity(
+      'group_updated',
+      `Updated group "${group.name || group.groupName}"`,
+      req.user,
+      'group',
+      group._id,
+      group.name || group.groupName
+    );
+    
     res.json(group);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -156,6 +196,17 @@ router.delete('/:id', auth, async (req, res) => {
       return res.status(404).json({ message: 'Group not found' });
     }
     console.log('🔴 Group deleted successfully:', group.name);
+    
+    // Log the group deletion activity
+    await logActivity(
+      'group_deleted',
+      `Deleted group "${group.name || group.groupName}"`,
+      req.user,
+      'group',
+      group._id,
+      group.name || group.groupName
+    );
+    
     res.json({ message: 'Group deleted successfully', deletedGroup: group });
   } catch (error) {
     console.error('🔴 Error deleting group:', error);

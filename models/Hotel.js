@@ -55,6 +55,10 @@ const hotelSchema = new mongoose.Schema({
     default: 'Available'
   },
   notes: String,
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
   createdAt: {
     type: Date,
     default: Date.now

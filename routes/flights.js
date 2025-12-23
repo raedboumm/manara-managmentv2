@@ -3,13 +3,29 @@ const express = require('express');
 const router = express.Router();
 const Flight = require('../models/Flight');
 const auth = require('../middleware/auth');
+const { logActivity } = require('../middleware/activityLogger');
 
 // Get all flights
 router.get('/', auth, async (req, res) => {
   try {
-    const flights = await Flight.find()
+    console.log('🔍 FLIGHTS - User Role:', req.user.role, 'User ID:', req.user.id);
+    
+    // Build filter based on role
+    const filter = {};
+    if (req.user.role === 'Group Leader') {
+      console.log('🔒 Filtering flights for Group Leader:', req.user.id);
+      filter.createdBy = req.user.id;
+    }
+    
+    const flights = await Flight.find(filter)
       .populate('group', 'name')
-      .populate('passengers', 'firstName lastName email');
+      .populate('passengers', 'firstName lastName email')
+      .populate('createdBy', 'name email');
+    
+    console.log('📊 Found flights:', flights.length);
+    if (req.user.role === 'Group Leader' && flights.length > 0) {
+      console.log('✅ Flight createdBy IDs:', flights.map(f => f.createdBy?._id?.toString()));
+    }
     res.json(flights);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -44,9 +60,26 @@ router.get('/:id', auth, async (req, res) => {
 // Create flight
 router.post('/', auth, async (req, res) => {
   try {
-    const flight = new Flight(req.body);
+    const flightData = {
+      ...req.body,
+      createdBy: req.user.id
+    };
+    const flight = new Flight(flightData);
     await flight.save();
     await flight.populate('group', 'name');
+    await flight.populate('createdBy', 'name email');
+    
+    // Log the flight creation activity
+    await logActivity(
+      'flight_added',
+      `Added flight "${flight.flightNumber || 'Flight'}"`,
+      req.user,
+      'flight',
+      flight._id,
+      flight.flightNumber,
+      { group: flight.group?.name }
+    );
+    
     res.status(201).json(flight);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -65,6 +98,17 @@ router.put('/:id', auth, async (req, res) => {
     if (!flight) {
       return res.status(404).json({ message: 'Flight not found' });
     }
+    
+    // Log the flight update activity
+    await logActivity(
+      'flight_updated',
+      `Updated flight "${flight.flightNumber || 'Flight'}"`,
+      req.user,
+      'flight',
+      flight._id,
+      flight.flightNumber
+    );
+    
     res.json(flight);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -78,6 +122,17 @@ router.delete('/:id', auth, async (req, res) => {
     if (!flight) {
       return res.status(404).json({ message: 'Flight not found' });
     }
+    
+    // Log the flight deletion activity
+    await logActivity(
+      'flight_deleted',
+      `Deleted flight "${flight.flightNumber || 'Flight'}"`,
+      req.user,
+      'flight',
+      flight._id,
+      flight.flightNumber
+    );
+    
     res.json({ message: 'Flight deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
